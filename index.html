@@ -550,7 +550,21 @@ function dibujarImp(id,nombres,vals,color){
   const datos=vals.map(v=>+(v*100).toFixed(1));
   if(window.Chart){
     cv.style.display="block";fb.style.display="none";
-    if(charts[id]){charts[id].data.labels=nombres;charts[id].data.datasets[0].data=datos;charts[id].update();return;}
+
+    // panelHTML() reconstruye el panel al cambiar los controles y crea un canvas nuevo.
+    // Si existe un gráfico asociado al canvas anterior, lo destruimos antes de redibujar.
+    if(charts[id] && charts[id].canvas !== cv){
+      charts[id].destroy();
+      delete charts[id];
+    }
+
+    if(charts[id]){
+      charts[id].data.labels=nombres;
+      charts[id].data.datasets[0].data=datos;
+      charts[id].update();
+      return;
+    }
+
     charts[id]=new Chart(cv,{type:"bar",data:{labels:nombres,datasets:[{label:"Importancia (%)",data:datos,backgroundColor:color}]},
       options:{indexAxis:"y",responsive:true,maintainAspectRatio:false,animation:{duration:200},
         plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>` ${c.parsed.x} %`}}},
