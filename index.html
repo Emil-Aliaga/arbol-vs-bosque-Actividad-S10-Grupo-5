@@ -1,0 +1,637 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Árboles de decisión y Random Forest</title>
+<style>
+  :root{
+    --navy:#002060; --sky:#DCE6F2; --ink:#14213d; --muted:#51607a;
+    --line:#b9c8de; --white:#fff; --ok:#1e7b4b; --warn:#a85a00; --bad:#a32020;
+    --sky2:#eef3fa;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;color:var(--ink);background:var(--sky2);line-height:1.5}
+  header{background:var(--navy);color:#fff;padding:18px 16px 0}
+  header h1{margin:0 auto;max-width:1200px;font-size:1.4rem}
+  header p{margin:4px auto 12px;max-width:1200px;color:#cfdcf2;font-size:.95rem}
+  .tabs{max-width:1200px;margin:0 auto;display:flex;gap:6px;flex-wrap:wrap}
+  .tabs button{border:0;background:#1a3a80;color:#dce6f2;padding:10px 16px;border-radius:10px 10px 0 0;font-size:1rem;cursor:pointer}
+  .tabs button[aria-selected="true"]{background:var(--sky2);color:var(--navy);font-weight:700}
+  .tabs button:focus-visible{outline:3px solid #fff;outline-offset:-3px}
+  main{max-width:1200px;margin:0 auto;padding:16px}
+  section.tab{display:none}
+  section.tab.on{display:block}
+  .card{background:#fff;border:1px solid var(--line);border-radius:12px;padding:16px;margin-bottom:16px}
+  .card h2{margin:0 0 6px;font-size:1.15rem;color:var(--navy)}
+  .card h3{margin:0 0 6px;font-size:1rem;color:var(--navy)}
+  .hint{background:var(--sky);border-radius:10px;padding:10px 12px;font-size:.93rem}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  .grid2>*,.controls>*{min-width:0}
+  @media (max-width:820px){.grid2{grid-template-columns:1fr}}
+  table{border-collapse:collapse;width:100%;font-size:.9rem}
+  th,td{border:1px solid var(--line);padding:5px 8px;text-align:center}
+  th{background:var(--navy);color:#fff;font-weight:600}
+  .scroll{overflow-x:auto}
+  td.sel{background:#cfe0f7;font-weight:700}
+  tr.hl td{background:#fff3c4}
+  tr.hl td.sel{background:#ffe48a}
+  .btns{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0}
+  .btn{border:2px solid var(--navy);background:#fff;color:var(--navy);padding:7px 12px;border-radius:9px;font-size:.95rem;cursor:pointer}
+  .btn:hover{background:var(--sky)}
+  .btn.on{background:var(--navy);color:#fff}
+  .btn.solid{background:var(--navy);color:#fff}
+  .btn.solid:hover{background:#0a3185}
+  .btn:focus-visible{outline:3px solid #7aa2e8;outline-offset:2px}
+  .btn.small{padding:3px 9px;font-size:.85rem}
+  .formula{font-family:ui-monospace,Consolas,monospace;font-size:.88rem;background:var(--sky2);padding:6px 8px;border-radius:8px;overflow-x:auto;white-space:nowrap}
+  .branch{border:1px solid var(--line);border-radius:10px;padding:8px 10px;margin:8px 0;background:#fff}
+  .branch:hover{border-color:var(--navy);box-shadow:0 0 0 2px var(--sky)}
+  .big{font-size:1.25rem;font-weight:700;color:var(--navy)}
+  .bar{height:14px;background:var(--sky);border-radius:7px;overflow:hidden;min-width:80px}
+  .bar>i{display:block;height:100%;background:var(--navy)}
+  .cmp td{text-align:left}
+  .good{color:var(--ok);font-weight:600}
+  .warnt{color:var(--warn);font-weight:600}
+  .badge{display:inline-block;padding:2px 9px;border-radius:999px;font-size:.85rem;font-weight:700}
+  .badge.si{background:#fde3e3;color:var(--bad)}
+  .badge.no{background:#dff3e8;color:var(--ok)}
+  .tree ul{list-style:none;margin:0;padding-left:20px;border-left:2px solid var(--line)}
+  .tree>ul{border-left:0;padding-left:0}
+  .tree li{margin:8px 0}
+  .node{background:#fff;border:1px solid var(--line);border-radius:10px;padding:8px 10px}
+  .node.leaf{background:var(--sky2)}
+  .rules{margin:6px 0 0;padding-left:20px}
+  .rules li{margin:5px 0}
+  /* tooltips */
+  .tip{position:relative;display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:50%;background:var(--navy);color:#fff;font-size:.72rem;font-weight:700;cursor:help;margin-left:5px;vertical-align:middle}
+  #tipbox{position:fixed;z-index:50;display:none;max-width:min(260px,calc(100vw - 20px));background:#0b1b3f;color:#fff;font-size:.82rem;line-height:1.35;padding:7px 10px;border-radius:8px;pointer-events:none;box-shadow:0 4px 14px rgba(0,0,0,.25)}
+  .tip:focus-visible{outline:3px solid #7aa2e8}
+  /* tab 2 */
+  .controls{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:14px;align-items:end}
+  label.lb{display:block;font-weight:600;margin-bottom:4px;color:var(--navy)}
+  select{width:100%;padding:8px;border:2px solid var(--navy);border-radius:9px;font-size:1rem;background:#fff;color:var(--ink)}
+  input[type=range]{width:100%;accent-color:var(--navy)}
+  .val{font-weight:700;color:var(--navy)}
+  .metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px;margin:8px 0}
+  .m{background:var(--sky);border-radius:10px;padding:8px 10px;text-align:center}
+  .m b{display:block;font-size:1.3rem;color:var(--navy)}
+  .m span{font-size:.82rem;color:var(--muted)}
+  .cm{width:auto;margin:6px 0}
+  .cm td,.cm th{padding:7px 12px}
+  .cm td.tp,.cm td.tn{background:#dff3e8;font-weight:700}
+  .cm td.fp,.cm td.fn{background:#fde8d6;font-weight:700}
+  .cm th.row{background:var(--sky);color:var(--navy)}
+  .chartbox{position:relative;height:280px}
+  .fb div.r{display:flex;align-items:center;gap:8px;margin:4px 0;font-size:.88rem}
+  .fb div.r span.n{width:42%}
+  .fb div.r .bar{flex:1}
+  details{margin-top:8px}
+  details summary{cursor:pointer;color:var(--navy);font-weight:600}
+  pre{background:var(--sky2);padding:8px;border-radius:8px;overflow-x:auto;font-size:.8rem;margin:6px 0 0;max-height:260px}
+  .verdict{border-left:5px solid var(--navy);background:#fff;padding:10px 12px;border-radius:0 10px 10px 0;margin-bottom:16px}
+  footer{max-width:1200px;margin:0 auto;padding:6px 16px 28px;text-align:center;color:var(--muted);font-size:.9rem}
+  footer b{color:var(--navy)}
+</style>
+</head>
+<body>
+<header>
+  <h1>Árboles de decisión y Random Forest</h1>
+  <p>Aprende cómo una máquina saca reglas de los datos: primero con Gini a mano, luego comparando un árbol con un bosque.</p>
+  <div class="tabs" role="tablist">
+    <button role="tab" id="bt1" aria-selected="true" aria-controls="tab1" title="Calcula el Gini y arma el árbol nodo por nodo">1 · Gini paso a paso</button>
+    <button role="tab" id="bt2" aria-selected="false" aria-controls="tab2" title="Compara un solo árbol con muchos árboles juntos">2 · Un árbol frente a un bosque</button>
+  </div>
+</header>
+
+<main>
+<!-- ================= PESTAÑA 1 ================= -->
+<section id="tab1" class="tab on" role="tabpanel" aria-labelledby="bt1">
+  <div class="card">
+    <h2>Los 14 correos <span class="tip" tabindex="0" data-tip="Cada fila es un correo. Las 4 primeras columnas son las pistas. La última dice si era phishing (la respuesta correcta).">?</span></h2>
+    <p class="hint">Objetivo: encontrar la pregunta que mejor separa los correos de phishing de los normales. Cuanto más "pura" queda cada rama, mejor. La pureza se mide con el <b>índice de Gini</b>: 0 = rama pura, 0,5 = mezcla total (en dos clases).</p>
+    <div class="scroll"><table id="tabla"></table></div>
+  </div>
+
+  <div class="grid2">
+    <div class="card">
+      <h2>Paso 1 · Elige una variable y mira su Gini <span class="tip" tabindex="0" data-tip="Al hacer clic se divide la tabla según los valores de esa variable y se calcula el Gini de cada rama.">?</span></h2>
+      <div class="formula" id="raizF"></div>
+      <div class="btns" id="varBtns"></div>
+      <div id="detalle"><p class="hint">Haz clic en una variable para ver sus conteos y su Gini.</p></div>
+    </div>
+    <div class="card">
+      <h2>Comparación <span class="tip" tabindex="0" data-tip="El Gini ponderado promedia el Gini de las ramas según cuántos correos tiene cada una. La variable con el menor valor es la mejor raíz.">?</span></h2>
+      <table class="cmp" id="cmp"></table>
+      <p id="cmpMsg" class="hint">Prueba las 4 variables y compara.</p>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Paso 2 · Arma el árbol nodo por nodo <span class="tip" tabindex="0" data-tip="En cada grupo mezclado elige una variable para dividirlo. Si te equivocas, usa Deshacer. Un grupo puro (Gini 0) ya es una hoja.">?</span></h2>
+    <p class="hint">Empieza en la raíz con los 14 correos. Elige con qué variable dividir cada grupo que todavía esté mezclado. Verás enseguida si tu elección tiene el menor Gini ponderado.</p>
+    <div class="btns">
+      <button class="btn" id="btnReset" title="Vuelve a empezar con un árbol vacío">Reiniciar árbol</button>
+      <button class="btn solid" id="btnAuto" title="Arma el árbol eligiendo siempre la variable con menor Gini ponderado">Autocompletar con el mejor Gini</button>
+    </div>
+    <div class="tree" id="arbol"></div>
+    <h3 style="margin-top:14px">Reglas SI… ENTONCES <span class="tip" tabindex="0" data-tip="Cada hoja del árbol se lee como una regla: el camino desde la raíz son las condiciones, y la hoja es la decisión.">?</span></h3>
+    <div id="reglas"></div>
+  </div>
+</section>
+
+<!-- ================= PESTAÑA 2 ================= -->
+<section id="tab2" class="tab" role="tabpanel" aria-labelledby="bt2">
+  <div class="card">
+    <h2>Configura el experimento</h2>
+    <p class="hint">Se generan <b>200 casos</b> con una semilla fija, así que siempre obtienes los mismos datos. El 70 % (140) sirve para <b>entrenar</b> y el 30 % (60) para <b>probar</b> con casos que el modelo no vio.</p>
+    <div class="controls">
+      <div>
+        <label class="lb" for="tema">Tema <span class="tip" tabindex="0" data-tip="Elige el problema. Cada tema tiene 6 variables; una de ellas no tiene relación real con el resultado.">?</span></label>
+        <select id="tema" title="Elige el tema de los datos"></select>
+      </div>
+      <div>
+        <label class="lb" for="prof">Profundidad del árbol: <span class="val" id="profV">3</span> <span class="tip" tabindex="0" data-tip="Cuántas preguntas seguidas puede hacer el árbol. Muy poca profundidad simplifica de más; demasiada memoriza los datos de entrenamiento (sobreajuste).">?</span></label>
+        <input type="range" id="prof" min="1" max="10" value="3" title="Profundidad máxima del árbol (1 a 10)">
+      </div>
+      <div>
+        <label class="lb" for="nar">Árboles del bosque: <span class="val" id="narV">100</span> <span class="tip" tabindex="0" data-tip="Cuántos árboles votan en el bosque. Cada uno ve una muestra distinta de los datos y de las variables. Con 1 árbol, el bosque es casi un árbol suelto.">?</span></label>
+        <input type="range" id="nar" min="1" max="200" value="100" title="Número de árboles del bosque (1 a 200)">
+      </div>
+    </div>
+    <p id="temaInfo" style="margin:10px 0 0"></p>
+    <details><summary>Ver los primeros 8 casos</summary><div class="scroll" id="muestra"></div></details>
+  </div>
+
+  <div class="verdict" id="veredicto"></div>
+
+  <div class="grid2">
+    <div class="card" id="pArbol"></div>
+    <div class="card" id="pBosque"></div>
+  </div>
+</section>
+</main>
+
+<div id="tipbox" role="tooltip"></div>
+<footer><b>Datos sintéticos con fines didácticos.</b> Los casos de la pestaña 2 se generan con una regla inventada más ruido aleatorio; no son datos reales de personas.</footer>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script>
+"use strict";
+const $ = s => document.querySelector(s);
+const fmt = (x, d = 4) => x.toFixed(d).replace(".", ",");
+
+
+/* ---------- Ayudas emergentes (siempre dentro de la pantalla) ---------- */
+(function(){
+  const box=$("#tipbox");
+  function mostrar(t){
+    box.textContent=t.dataset.tip; box.style.display="block";
+    const r=t.getBoundingClientRect(), w=box.offsetWidth, h=box.offsetHeight;
+    let x=Math.min(Math.max(10,r.left+r.width/2-w/2),window.innerWidth-w-10);
+    let y=r.top-h-8; if(y<8) y=r.bottom+8;
+    box.style.left=x+"px"; box.style.top=y+"px";
+  }
+  const ocultar=()=>{box.style.display="none";};
+  document.addEventListener("mouseover",e=>{const t=e.target.closest(".tip"); t?mostrar(t):ocultar();});
+  document.addEventListener("focusin",e=>{const t=e.target.closest(".tip"); t?mostrar(t):ocultar();});
+  document.addEventListener("focusout",ocultar);
+  document.addEventListener("click",e=>{const t=e.target.closest(".tip"); t?mostrar(t):ocultar();});
+  window.addEventListener("scroll",ocultar,{passive:true});
+})();
+
+/* ---------- Pestañas ---------- */
+function showTab(n){
+  [1,2].forEach(i=>{
+    $("#tab"+i).classList.toggle("on", i===n);
+    $("#bt"+i).setAttribute("aria-selected", i===n ? "true" : "false");
+  });
+  if(n===2) runTab2();
+}
+$("#bt1").onclick = () => showTab(1);
+$("#bt2").onclick = () => showTab(2);
+
+/* =====================================================
+   PESTAÑA 1 — GINI PASO A PASO
+   ===================================================== */
+const VARS = ["Urgencia","Remitente","Adjunto","Enlace_corto"];
+const LBL  = {Urgencia:"Urgencia",Remitente:"Remitente",Adjunto:"Adjunto",Enlace_corto:"Enlace corto"};
+const ORDER = {Urgencia:["Alta","Media","Baja"],Remitente:["Conocido","Desconocido"],Adjunto:["Sí","No"],Enlace_corto:["Sí","No"]};
+const RAW = "Alta,Desconocido,Sí,Sí,Sí|Alta,Desconocido,No,No,Sí|Alta,Conocido,Sí,No,Sí|Alta,Conocido,No,Sí,Sí|Media,Desconocido,Sí,Sí,Sí|Media,Desconocido,No,No,Sí|Media,Desconocido,Sí,No,Sí|Media,Conocido,No,Sí,No|Media,Conocido,Sí,No,No|Baja,Desconocido,No,Sí,No|Baja,Desconocido,Sí,No,No|Baja,Conocido,No,No,No|Baja,Conocido,Sí,Sí,No|Baja,Desconocido,No,No,No";
+const DATA = RAW.split("|").map((s,i)=>{const a=s.split(",");return {id:i+1,Urgencia:a[0],Remitente:a[1],Adjunto:a[2],Enlace_corto:a[3],Phishing:a[4]};});
+
+const cuentaSi = rows => rows.filter(r=>r.Phishing==="Sí").length;
+function gini(rows){
+  const n=rows.length; if(!n) return 0;
+  const p=cuentaSi(rows)/n, q=1-p;
+  return 1-(p*p+q*q);
+}
+function ramas(rows,v){
+  return ORDER[v].map(val=>{
+    const g=rows.filter(r=>r[v]===val), si=cuentaSi(g);
+    return {val,rows:g,n:g.length,si,no:g.length-si,g:gini(g)};
+  }).filter(x=>x.n>0);
+}
+function ponderado(rows,v){
+  const N=rows.length;
+  return ramas(rows,v).reduce((a,s)=>a+s.n/N*s.g,0);
+}
+
+/* tabla de datos */
+(function(){
+  let h="<tr><th>#</th>"+VARS.map(v=>`<th>${LBL[v]}</th>`).join("")+"<th>¿Phishing?</th></tr>";
+  DATA.forEach(r=>{
+    h+=`<tr data-r="${r.id}"><td>${r.id}</td>`+VARS.map(v=>`<td data-v="${v}">${r[v]}</td>`).join("")+`<td><span class="badge ${r.Phishing==="Sí"?"si":"no"}">${r.Phishing}</span></td></tr>`;
+  });
+  $("#tabla").innerHTML=h;
+})();
+
+/* explorador */
+const vistas = new Set();
+let elegida = null;
+$("#raizF").textContent = `Gini de la raíz = 1 − ((7/14)² + (7/14)²) = ${fmt(gini(DATA))}   (7 Sí, 7 No)`;
+$("#varBtns").innerHTML = VARS.map(v=>`<button class="btn" data-var="${v}" title="Divide los 14 correos según ${LBL[v]}">${LBL[v]}</button>`).join("");
+
+function marcarColumna(v){
+  document.querySelectorAll("#tabla td[data-v]").forEach(td=>td.classList.toggle("sel", td.dataset.v===v));
+}
+function resaltar(ids){
+  document.querySelectorAll("#tabla tr[data-r]").forEach(tr=>tr.classList.toggle("hl", ids.includes(+tr.dataset.r)));
+}
+function renderDetalle(){
+  document.querySelectorAll("#varBtns .btn").forEach(b=>b.classList.toggle("on", b.dataset.var===elegida));
+  if(!elegida) return;
+  const v=elegida, N=DATA.length, rs=ramas(DATA,v);
+  let h="";
+  rs.forEach(s=>{
+    h+=`<div class="branch" data-ids="${s.rows.map(r=>r.id).join(",")}">
+      <b>${LBL[v]} = ${s.val}</b>: ${s.n} correos (${s.si} Sí, ${s.no} No)
+      <div class="formula">Gini = 1 − ((${s.si}/${s.n})² + (${s.no}/${s.n})²) = ${fmt(s.g)}</div></div>`;
+  });
+  const w=ponderado(DATA,v);
+  h+=`<div class="formula" style="margin-top:8px">Gini ponderado = ${rs.map(s=>`(${s.n}/${N})·${fmt(s.g)}`).join(" + ")} = <b>${fmt(w)}</b></div>
+      <p style="margin:8px 0 0">El Gini baja de ${fmt(gini(DATA))} a <span class="big">${fmt(w)}</span> (ganancia ${fmt(gini(DATA)-w)}).</p>`;
+  $("#detalle").innerHTML=h;
+  marcarColumna(v);
+}
+function renderCmp(){
+  const ws = VARS.filter(v=>vistas.has(v)).map(v=>({v,w:ponderado(DATA,v)}));
+  let h="<tr><th>Variable</th><th>Gini ponderado</th><th></th></tr>";
+  ws.forEach(x=>{h+=`<tr data-cv="${x.v}"><td>${LBL[x.v]}</td><td>${fmt(x.w)}</td><td><div class="bar"><i style="width:${x.w/0.5*100}%"></i></div></td></tr>`;});
+  if(!ws.length) h+=`<tr><td colspan="3">Aún no has probado ninguna variable.</td></tr>`;
+  $("#cmp").innerHTML=h;
+  if(ws.length===VARS.length){
+    const best=ws.reduce((a,b)=>b.w<a.w?b:a);
+    $("#cmpMsg").innerHTML=`La mejor raíz es <b>${LBL[best.v]}</b> porque tiene el menor Gini ponderado (<b>${fmt(best.w)}</b>). Dos de sus ramas ya quedan puras.`;
+  }else{
+    $("#cmpMsg").textContent=`Has probado ${ws.length} de 4 variables. Prueba todas para comparar.`;
+  }
+}
+$("#varBtns").addEventListener("click",e=>{
+  const b=e.target.closest("[data-var]"); if(!b) return;
+  elegida=b.dataset.var; vistas.add(elegida); renderDetalle(); renderCmp();
+});
+$("#detalle").addEventListener("mouseover",e=>{
+  const b=e.target.closest(".branch"); if(!b) return;
+  resaltar(b.dataset.ids.split(",").map(Number));
+});
+$("#detalle").addEventListener("mouseleave",()=>resaltar([]));
+renderCmp();
+
+/* constructor del árbol */
+let raiz;
+let seq = 0;
+function nuevoNodo(rows,cond){return {id:"n"+(seq++),rows,cond,split:null,hijos:[]};}
+function usadas(n){return n.cond.map(c=>c[0]);}
+function disponibles(n){return VARS.filter(v=>!usadas(n).includes(v));}
+function esHoja(n){return gini(n.rows)===0 || disponibles(n).length===0;}
+function etiqueta(n){return cuentaSi(n.rows)*2>=n.rows.length ? "Sí" : "No";}
+function mejorVar(n){
+  return disponibles(n).map(v=>({v,w:ponderado(n.rows,v)})).reduce((a,b)=>b.w<a.w-1e-12?b:a);
+}
+function dividir(n,v){
+  n.split=v;
+  n.hijos=ramas(n.rows,v).map(s=>nuevoNodo(s.rows,n.cond.concat([[v,s.val]])));
+}
+function autocompletar(n){
+  if(esHoja(n)) return;
+  if(!n.split) dividir(n,mejorVar(n).v);
+  n.hijos.forEach(autocompletar);
+}
+function buscar(n,id){
+  if(n.id===id) return n;
+  for(const h of n.hijos){const r=buscar(h,id); if(r) return r;}
+  return null;
+}
+function nodoHTML(n){
+  const si=cuentaSi(n.rows), no=n.rows.length-si;
+  const nom = n.cond.length ? `${LBL[n.cond[n.cond.length-1][0]]} = ${n.cond[n.cond.length-1][1]}` : "Raíz (todos los correos)";
+  let h=`<div class="node${esHoja(n)?" leaf":""}"><b>${nom}</b> · ${n.rows.length} correos (${si} Sí / ${no} No) · Gini ${fmt(gini(n.rows))}`;
+  if(esHoja(n)){
+    const e=etiqueta(n), k=e==="Sí"?si:no;
+    h+=`<div style="margin-top:4px">🍃 Hoja: <span class="badge ${e==="Sí"?"si":"no"}">${e==="Sí"?"PHISHING":"NO PHISHING"}</span> (${k} de ${n.rows.length})</div>`;
+  }else if(!n.split){
+    h+=`<div style="margin-top:6px">¿Con qué variable divides este grupo?</div><div class="btns">`+
+      disponibles(n).map(v=>`<button class="btn small" data-act="split" data-node="${n.id}" data-var="${v}" title="Divide este grupo según ${LBL[v]}">${LBL[v]}</button>`).join("")+`</div>`;
+  }else{
+    const w=ponderado(n.rows,n.split), mb=mejorVar(n);
+    const ok = w<=mb.w+1e-9;
+    h+=`<div style="margin-top:4px">Divides por <b>${LBL[n.split]}</b> · Gini ponderado ${fmt(w)} · `+
+       (ok?`<span class="good">✔ Es el menor posible en este grupo</span>`
+          :`<span class="warnt">⚠ Con ${LBL[mb.v]} sale menos (${fmt(mb.w)}). Puedes deshacer y probar.</span>`)+
+       ` <button class="btn small" data-act="undo" data-node="${n.id}" title="Quita esta división para elegir otra variable">Deshacer</button></div>`;
+  }
+  h+="</div>";
+  if(n.hijos.length) h+="<ul>"+n.hijos.map(c=>`<li>${nodoHTML(c)}</li>`).join("")+"</ul>";
+  return h;
+}
+function hojas(n,acc=[]){
+  if(!n.hijos.length){ if(esHoja(n)) acc.push(n); return acc; }
+  n.hijos.forEach(h=>hojas(h,acc)); return acc;
+}
+function abiertos(n){
+  if(esHoja(n)) return 0;
+  if(!n.split) return 1;
+  return n.hijos.reduce((a,h)=>a+abiertos(h),0);
+}
+function renderArbol(){
+  $("#arbol").innerHTML="<ul><li>"+nodoHTML(raiz)+"</li></ul>";
+  const ab=abiertos(raiz);
+  if(ab>0){
+    $("#reglas").innerHTML=`<p class="hint">Aún falta dividir ${ab} grupo${ab>1?"s":""} mezclado${ab>1?"s":""}. Cuando todas las ramas terminen en hoja verás las reglas aquí.</p>`;
+    return;
+  }
+  const hs=hojas(raiz);
+  let aciertos=0;
+  const items=hs.map(n=>{
+    const e=etiqueta(n), si=cuentaSi(n.rows), k=e==="Sí"?si:n.rows.length-si; aciertos+=k;
+    const cond=n.cond.map(c=>`${LBL[c[0]]} = ${c[1]}`).join(" Y ") || "(siempre)";
+    return `<li><b>SI</b> ${cond} <b>ENTONCES</b> ${e==="Sí"?"es phishing":"no es phishing"} <small>(${k} de ${n.rows.length} correos)</small></li>`;
+  }).join("");
+  $("#reglas").innerHTML=`<ol class="rules">${items}</ol><p class="hint">El árbol clasifica bien <b>${aciertos} de ${DATA.length}</b> correos de esta tabla. Compáralo con el árbol que dibujaste a mano.</p>`;
+}
+function reiniciar(){seq=0;raiz=nuevoNodo(DATA,[]);renderArbol();}
+$("#arbol").addEventListener("click",e=>{
+  const b=e.target.closest("[data-act]"); if(!b) return;
+  const n=buscar(raiz,b.dataset.node); if(!n) return;
+  if(b.dataset.act==="split") dividir(n,b.dataset.var);
+  else {n.split=null;n.hijos=[];}
+  renderArbol();
+});
+$("#btnReset").onclick=reiniciar;
+$("#btnAuto").onclick=()=>{reiniciar();autocompletar(raiz);renderArbol();};
+reiniciar();
+
+/* =====================================================
+   PESTAÑA 2 — UN ÁRBOL FRENTE A UN BOSQUE
+   ===================================================== */
+const SEMILLA = 42;
+const TEMAS = {
+  desercion:{nombre:"Deserción universitaria",objetivo:"1 = deja la carrera",ruido:0.8,pos:0.35,
+    peor:"Idea para conversar: un FN es no ayudar a quien sí iba a desertar; un FP es dar apoyo a quien no lo necesitaba. Piensa cuál cuesta más.",
+    feats:[
+      {n:"Promedio ponderado (0-20)",k:"num",mean:13,sd:2.5,min:5,max:20,w:-1.0},
+      {n:"Faltas (%)",k:"num",mean:15,sd:10,min:0,max:60,w:0.8},
+      {n:"Trabaja (0/1)",k:"bin",p:0.4,w:0.5},
+      {n:"Tiene beca (0/1)",k:"bin",p:0.25,w:-0.5},
+      {n:"Cursos desaprobados",k:"int",mean:1.2,sd:1.5,min:0,max:8,w:0.7},
+      {n:"Mes de nacimiento (sin relación)",k:"int",mean:5.5,sd:3.4,min:0,max:11,w:0}]},
+  ets:{nombre:"ETS (infecciones de transmisión sexual)",objetivo:"1 = dio positivo",ruido:0.9,pos:0.3,
+    peor:"Idea para conversar: un FN es dejar sin atención a una persona que sí está infectada; un FP genera una preocupación que luego se descarta. Piensa cuál cuesta más.",
+    feats:[
+      {n:"Parejas en 12 meses",k:"int",mean:1.5,sd:1.5,min:0,max:8,w:0.8},
+      {n:"Usa preservativo (0/1)",k:"bin",p:0.55,w:-0.9},
+      {n:"Edad",k:"num",mean:26,sd:7,min:18,max:50,round:true,w:0.2},
+      {n:"Se hizo una prueba el último año (0/1)",k:"bin",p:0.4,w:-0.4},
+      {n:"Alcohol antes de relaciones (0-3)",k:"int",mean:1,sd:1,min:0,max:3,w:0.5},
+      {n:"Número de calzado (sin relación)",k:"num",mean:40,sd:2,min:35,max:46,round:true,w:0}]},
+  spam:{nombre:"Spam",objetivo:"1 = es spam",ruido:0.7,pos:0.4,
+    peor:"Idea para conversar: un FP manda a la bandeja de spam un correo importante; un FN deja pasar un spam. Piensa cuál molesta más.",
+    feats:[
+      {n:"% de letras en mayúsculas",k:"num",mean:12,sd:10,min:0,max:80,w:0.7},
+      {n:"Cantidad de enlaces",k:"int",mean:2,sd:2,min:0,max:12,w:0.7},
+      {n:"Contiene la palabra «gratis» (0/1)",k:"bin",p:0.25,w:1.0},
+      {n:"Remitente está en tus contactos (0/1)",k:"bin",p:0.5,w:-1.0},
+      {n:"Signos de exclamación",k:"int",mean:1,sd:2,min:0,max:10,w:0.5},
+      {n:"Hora de envío (sin relación)",k:"num",mean:12,sd:6,min:0,max:23,round:true,w:0}]},
+  phishing:{nombre:"Phishing",objetivo:"1 = es phishing",ruido:0.7,pos:0.4,
+    peor:"Idea para conversar: un FN deja pasar un correo que roba claves; un FP bloquea un correo legítimo. Piensa cuál cuesta más.",
+    feats:[
+      {n:"Urgencia (0 baja, 1 media, 2 alta)",k:"int",mean:1,sd:0.8,min:0,max:2,w:1.2},
+      {n:"Remitente desconocido (0/1)",k:"bin",p:0.55,w:0.6},
+      {n:"Trae adjunto (0/1)",k:"bin",p:0.5,w:0.3},
+      {n:"Enlace acortado (0/1)",k:"bin",p:0.4,w:0.5},
+      {n:"Faltas de ortografía",k:"int",mean:1,sd:1.5,min:0,max:6,w:0.5},
+      {n:"Palabras del asunto (sin relación)",k:"int",mean:6,sd:3,min:1,max:15,w:0}]},
+  extorsion:{nombre:"Extorsión a negocios",objetivo:"1 = el negocio es víctima de extorsión",ruido:0.8,pos:0.35,
+    peor:"Idea para conversar: un FN es un negocio en riesgo que no detectamos y queda sin prevención; un FP es una visita o alerta de más. Piensa cuál cuesta más.",
+    feats:[
+      {n:"Está en una zona con denuncias previas (0/1)",k:"bin",p:0.4,w:1.0},
+      {n:"Denuncias de extorsión en la zona (último año)",k:"int",mean:3,sd:3,min:0,max:15,w:0.8},
+      {n:"Maneja mucho efectivo (0/1)",k:"bin",p:0.5,w:0.7},
+      {n:"Horas abierto por día",k:"num",mean:11,sd:3,min:4,max:20,round:true,w:0.3},
+      {n:"Tiene cámaras de seguridad (0/1)",k:"bin",p:0.45,w:-0.6},
+      {n:"Años del negocio (sin relación)",k:"int",mean:6,sd:4,min:0,max:20,w:0}]}
+};
+const TEMA_ORDEN=["desercion","ets","spam","phishing","extorsion"];
+$("#tema").innerHTML=TEMA_ORDEN.map(k=>`<option value="${k}"${k==="phishing"?" selected":""}>${TEMAS[k].nombre}</option>`).join("");
+
+/* generador con semilla */
+function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
+function randn(r){let u=0,v=0;while(!u)u=r();v=r();return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v);}
+function barajar(arr,r){for(let i=arr.length-1;i>0;i--){const j=Math.floor(r()*(i+1));[arr[i],arr[j]]=[arr[j],arr[i]];}return arr;}
+
+function generar(tema,seed,N=200){
+  const r=mulberry32(seed), F=tema.feats, X=[];
+  for(let i=0;i<N;i++){
+    X.push(F.map(f=>{
+      if(f.k==="bin") return r()<f.p?1:0;
+      let v=f.mean+f.sd*randn(r);
+      v=Math.min(f.max,Math.max(f.min,v));
+      return (f.k==="int"||f.round)?Math.round(v):Math.round(v*10)/10;
+    }));
+  }
+  const med=F.map((_,j)=>X.reduce((a,x)=>a+x[j],0)/N);
+  const dsv=F.map((_,j)=>Math.sqrt(X.reduce((a,x)=>a+(x[j]-med[j])**2,0)/N)||1);
+  const sc=X.map(x=>F.reduce((a,f,j)=>a+f.w*(x[j]-med[j])/dsv[j],0)+tema.ruido*randn(r));
+  const orden=sc.slice().sort((a,b)=>b-a), umbral=orden[Math.floor(N*tema.pos)];
+  const y=sc.map(s=>s>umbral?1:0);
+  const pos=[],neg=[];
+  y.forEach((v,i)=>(v?pos:neg).push(i));
+  barajar(pos,r);barajar(neg,r);
+  const nTest=a=>Math.round(a.length*0.3);
+  const test=pos.slice(0,nTest(pos)).concat(neg.slice(0,nTest(neg)));
+  const train=pos.slice(nTest(pos)).concat(neg.slice(nTest(neg)));
+  return {X,y,train,test};
+}
+
+/* árbol CART con Gini */
+function giniN(pos,n){if(!n)return 0;const p=pos/n;return 1-(p*p+(1-p)*(1-p));}
+function construir(X,y,idx,prof,maxProf,rng,mtry,imp){
+  const n=idx.length; let pos=0; idx.forEach(i=>pos+=y[i]);
+  const nodo={n,p:pos/n};
+  if(prof>=maxProf||pos===0||pos===n||n<2) return nodo;
+  const nf=X[0].length;
+  let feats=[...Array(nf).keys()];
+  if(mtry&&mtry<nf){barajar(feats,rng);feats=feats.slice(0,mtry);}
+  const gPadre=giniN(pos,n);
+  let mejor=null;
+  for(const f of feats){
+    const ord=idx.slice().sort((a,b)=>X[a][f]-X[b][f]);
+    let izq=0;
+    for(let k=0;k<n-1;k++){
+      izq+=y[ord[k]];
+      const a=X[ord[k]][f], b=X[ord[k+1]][f];
+      if(a===b) continue;
+      const nl=k+1, nr=n-nl;
+      const g=(nl*giniN(izq,nl)+nr*giniN(pos-izq,nr))/n;
+      if(!mejor||g<mejor.g-1e-12) mejor={g,f,t:(a+b)/2};
+    }
+  }
+  if(!mejor||gPadre-mejor.g<=1e-12) return nodo;
+  imp[mejor.f]+=n*(gPadre-mejor.g);
+  const L=[],R=[];
+  idx.forEach(i=>(X[i][mejor.f]<=mejor.t?L:R).push(i));
+  nodo.f=mejor.f;nodo.t=mejor.t;
+  nodo.l=construir(X,y,L,prof+1,maxProf,rng,mtry,imp);
+  nodo.r=construir(X,y,R,prof+1,maxProf,rng,mtry,imp);
+  return nodo;
+}
+function prob(nodo,x){while(nodo.f!==undefined)nodo=x[nodo.f]<=nodo.t?nodo.l:nodo.r;return nodo.p;}
+function normalizar(v){const s=v.reduce((a,b)=>a+b,0);return s>0?v.map(x=>x/s):v.map(()=>0);}
+
+/* bosque (cache: se reutilizan los primeros k árboles al mover el control) */
+const PROF_BOSQUE=10;
+let cacheB={key:"",arboles:[],imps:[]};
+function bosqueHasta(d,k,key){
+  if(cacheB.key!==key) cacheB={key,arboles:[],imps:[]};
+  const nf=d.X[0].length, mtry=Math.max(1,Math.round(Math.sqrt(nf)));
+  while(cacheB.arboles.length<k){
+    const t=cacheB.arboles.length, r=mulberry32(1000+t);
+    const boot=d.train.map(()=>d.train[Math.floor(r()*d.train.length)]);
+    const imp=Array(nf).fill(0);
+    cacheB.arboles.push(construir(d.X,d.y,boot,0,PROF_BOSQUE,r,mtry,imp));
+    cacheB.imps.push(normalizar(imp));
+  }
+  const arboles=cacheB.arboles.slice(0,k), imps=cacheB.imps.slice(0,k);
+  const imp=Array(nf).fill(0);
+  imps.forEach(v=>v.forEach((x,j)=>imp[j]+=x/k));
+  return {predP:x=>arboles.reduce((a,t)=>a+prob(t,x),0)/k, imp};
+}
+
+function metricas(yR,yP){
+  let vp=0,fp=0,fn=0,vn=0;
+  yR.forEach((r,i)=>{const p=yP[i];if(r&&p)vp++;else if(!r&&p)fp++;else if(r&&!p)fn++;else vn++;});
+  const n=vp+fp+fn+vn;
+  const rec=vp+fn?vp/(vp+fn):0, pre=vp+fp?vp/(vp+fp):0;
+  return {vp,fp,fn,vn,acc:(vp+vn)/n,rec,pre,f1:rec+pre?2*rec*pre/(rec+pre):0};
+}
+function evaluar(pred,d){
+  const tr=metricas(d.train.map(i=>d.y[i]),d.train.map(i=>pred(d.X[i])>=0.5?1:0));
+  const te=metricas(d.test.map(i=>d.y[i]),d.test.map(i=>pred(d.X[i])>=0.5?1:0));
+  return {tr,te};
+}
+
+/* reglas del árbol en texto */
+function reglasTexto(nodo,nombres,sangria="",lineas=[]){
+  if(lineas.length>60){return lineas;}
+  if(nodo.f===undefined){lineas.push(`${sangria}→ ${nodo.p>=0.5?"1":"0"}  (${nodo.n} casos, ${Math.round(nodo.p*100)} % positivos)`);return lineas;}
+  const nm=nombres[nodo.f], t=Math.round(nodo.t*100)/100;
+  lineas.push(`${sangria}si ${nm} ≤ ${t}:`);reglasTexto(nodo.l,nombres,sangria+"   ",lineas);
+  lineas.push(`${sangria}si no (${nm} > ${t}):`);reglasTexto(nodo.r,nombres,sangria+"   ",lineas);
+  return lineas;
+}
+
+/* dibujo */
+const pct=x=>(x*100).toFixed(1).replace(".",",")+" %";
+const charts={};
+function dibujarImp(id,nombres,vals,color){
+  const box=$("#"+id), cv=box.querySelector("canvas"), fb=box.querySelector(".fb");
+  const datos=vals.map(v=>+(v*100).toFixed(1));
+  if(window.Chart){
+    cv.style.display="block";fb.style.display="none";
+    if(charts[id]){charts[id].data.labels=nombres;charts[id].data.datasets[0].data=datos;charts[id].update();return;}
+    charts[id]=new Chart(cv,{type:"bar",data:{labels:nombres,datasets:[{label:"Importancia (%)",data:datos,backgroundColor:color}]},
+      options:{indexAxis:"y",responsive:true,maintainAspectRatio:false,animation:{duration:200},
+        plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>` ${c.parsed.x} %`}}},
+        scales:{x:{beginAtZero:true,max:100,title:{display:true,text:"Importancia (%)"}},y:{ticks:{font:{size:11}}}}}});
+  }else{
+    cv.style.display="none";fb.style.display="block";
+    fb.innerHTML=nombres.map((n,j)=>`<div class="r"><span class="n">${n}</span><div class="bar"><i style="width:${datos[j]}%"></i></div><b>${String(datos[j]).replace(".",",")} %</b></div>`).join("");
+  }
+}
+const TIP={
+  acc:"Exactitud: de todos los casos, qué porcentaje clasificó bien.",
+  rec:"Recall: de los casos que sí eran positivos, cuántos detectó. VP / (VP + FN).",
+  f1:"F1: un solo número que combina recall y precisión. Sube solo si ambos son buenos.",
+  vp:"VP (verdadero positivo): era positivo y el modelo dijo positivo.",
+  fp:"FP (falso positivo): era negativo pero el modelo dijo positivo. Falsa alarma.",
+  fn:"FN (falso negativo): era positivo pero el modelo dijo negativo. Se le escapó.",
+  vn:"VN (verdadero negativo): era negativo y el modelo dijo negativo.",
+  imp:"Cuánto ayudó cada variable a bajar el Gini. Más alto = más importante para decidir."
+};
+const tip=k=>`<span class="tip" tabindex="0" data-tip="${TIP[k]}">?</span>`;
+function panelHTML(titulo,sub,idChart,ev){
+  const {tr,te}=ev, dif=(tr.acc-te.acc)*100;
+  return `<h2>${titulo}</h2><p style="margin:0 0 6px;color:var(--muted);font-size:.9rem;min-height:2.8em">${sub}</p>
+  <div class="metrics">
+    <div class="m"><b>${pct(tr.acc)}</b><span>Exactitud en entrenamiento ${tip("acc")}</span></div>
+    <div class="m"><b>${pct(te.acc)}</b><span>Exactitud en prueba ${tip("acc")}</span></div>
+    <div class="m"><b>${dif.toFixed(1).replace(".",",")} pts</b><span>Diferencia (entren. − prueba)</span></div>
+  </div>
+  <h3>Matriz de confusión (prueba, 60 casos)</h3>
+  <table class="cm"><tr><th></th><th>Predice 1</th><th>Predice 0</th></tr>
+    <tr><th class="row">Real 1</th><td class="tp">VP = ${te.vp} ${tip("vp")}</td><td class="fn">FN = ${te.fn} ${tip("fn")}</td></tr>
+    <tr><th class="row">Real 0</th><td class="fp">FP = ${te.fp} ${tip("fp")}</td><td class="tn">VN = ${te.vn} ${tip("vn")}</td></tr></table>
+  <div class="metrics">
+    <div class="m"><b>${pct(te.rec)}</b><span>Recall ${tip("rec")}</span></div>
+    <div class="m"><b>${pct(te.pre)}</b><span>Precisión</span></div>
+    <div class="m"><b>${pct(te.f1)}</b><span>F1 ${tip("f1")}</span></div>
+  </div>
+  <h3>Importancia de cada variable ${tip("imp")}</h3>
+  <div class="chartbox" id="${idChart}"><canvas></canvas><div class="fb" style="display:none"></div></div>`;
+}
+
+let datosActual=null, claveActual="";
+function runTab2(){
+  const k=$("#tema").value, tema=TEMAS[k];
+  const prof=+$("#prof").value, nar=+$("#nar").value;
+  $("#profV").textContent=prof; $("#narV").textContent=nar;
+  const clave=k+"|"+SEMILLA;
+  if(clave!==claveActual){datosActual=generar(tema,SEMILLA);claveActual=clave;}
+  const d=datosActual, nombres=tema.feats.map(f=>f.n);
+  const npos=d.y.reduce((a,b)=>a+b,0);
+
+  $("#temaInfo").innerHTML=`<b>${tema.nombre}</b> · ${tema.objetivo} · semilla fija ${SEMILLA} · ${d.y.length} casos (${npos} con 1 y ${d.y.length-npos} con 0) · ${d.train.length} para entrenar y ${d.test.length} para probar.<br><span style="color:var(--muted)">${tema.peor}</span>`;
+  $("#muestra").innerHTML="<table><tr><th>#</th>"+nombres.map(n=>`<th>${n}</th>`).join("")+"<th>Objetivo</th></tr>"+
+    d.X.slice(0,8).map((x,i)=>`<tr><td>${i+1}</td>${x.map(v=>`<td>${String(v).replace(".",",")}</td>`).join("")}<td>${d.y[i]}</td></tr>`).join("")+"</table>";
+
+  /* árbol */
+  const impA=Array(nombres.length).fill(0);
+  const arbol=construir(d.X,d.y,d.train,0,prof,mulberry32(SEMILLA),null,impA);
+  const evA=evaluar(x=>prob(arbol,x),d);
+  /* bosque */
+  const B=bosqueHasta(d,nar,clave);
+  const evB=evaluar(B.predP,d);
+
+  $("#pArbol").innerHTML=panelHTML("🌳 Un solo árbol",`Profundidad máxima ${prof}. Es fácil de leer: cada camino es una regla.`,"impA",evA)+
+    `<details><summary>Ver las reglas del árbol</summary><pre>${reglasTexto(arbol,nombres).join("\n").replace(/&/g,"&amp;").replace(/</g,"&lt;")}</pre></details>`;
+  $("#pBosque").innerHTML=panelHTML("🌲🌲🌲 Random Forest",`${nar} árbol${nar>1?"es":""}, cada uno entrenado con una muestra distinta (con repetición) y viendo solo algunas variables por pregunta. Votan entre todos.`,"impB",evB);
+  dibujarImp("impA",nombres,normalizar(impA),"#002060");
+  dibujarImp("impB",nombres,B.imp,"#5b8bd0");
+
+  const dF1=(evB.te.f1-evA.te.f1)*100, dAcc=(evB.te.acc-evA.te.acc)*100;
+  const brechaA=(evA.tr.acc-evA.te.acc)*100, brechaB=(evB.tr.acc-evB.te.acc)*100;
+  const signo=x=>(x>=0?"+":"−")+Math.abs(x).toFixed(1).replace(".",",");
+  let txt=`<b>Lectura rápida:</b> en prueba, el bosque cambia la exactitud en ${signo(dAcc)} puntos y el F1 en ${signo(dF1)} puntos frente al árbol. `;
+  if(brechaA>10) txt+=`El árbol acierta ${pct(evA.tr.acc)} al entrenar pero ${pct(evA.te.acc)} al probar: señal de <b>sobreajuste</b> (memoriza los datos de entrenamiento). `;
+  else txt+=`La diferencia del árbol entre entrenar y probar es de ${brechaA.toFixed(1).replace(".",",")} puntos. `;
+  txt+=`En el bosque esa diferencia es de ${brechaB.toFixed(1).replace(".",",")} puntos. <span style="color:var(--muted)">Con solo 60 casos de prueba, cada caso mueve el resultado unos 1,7 puntos: no saques conclusiones de una sola configuración.</span>`;
+  $("#veredicto").innerHTML=txt;
+}
+$("#tema").onchange=runTab2;
+$("#prof").oninput=runTab2;
+$("#nar").oninput=runTab2;
+</script>
+</body>
+</html>
